@@ -6,20 +6,14 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.config import settings
 
-# Aiven MySQL requires SSL - using correct pymysql SSL format
-connect_args = {}
-if "aivencloud" in settings.DATABASE_URL:
-    connect_args = {
-        "ssl": {
-            "ca": "/etc/ssl/certs/ca-certificates.crt"
-        }
-    }
+# Build clean URL without SSL query params, add SSL via connect_args
+db_url = settings.DATABASE_URL.split("?")[0]
 
 engine = create_engine(
-    settings.DATABASE_URL,
+    db_url,
     pool_pre_ping=True,
     pool_recycle=300,
-    connect_args=connect_args,
+    connect_args={"ssl_disabled": False},
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
