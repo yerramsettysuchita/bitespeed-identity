@@ -1,33 +1,48 @@
-from sqlalchemy import create_engine
+import logging
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.config import settings
 
-# Strip any extra query params so we can cleanly inspect the URL
-db_url = settings.DATABASE_URL
+logger = logging.getLogger(__name__)
 
-# Determine the right connect_args based on the dialect
-if db_url.startswith("postgresql"):
-    # For Render's internal PostgreSQL, SSL is handled via the URL itself.
-    # No extra connect_args needed.
-    connect_args = {}
-else:
-    # For MySQL / PyMySQL — strip query params and disable forced SSL
-    # (local dev; production should use PostgreSQL on Render)
-    db_url = db_url.split("?")[0]
-    connect_args = {}
-
-engine = create_engine(
-    db_url,
-    pool_pre_ping=True,
-    pool_recycle=300,
-    connect_args=connect_args,
-)
-
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+SessionLocal = None
+engine = None
+
+try:
+    db_url = settings.DATABASE_URL
+
+    # If it's a plain mysql:// URL (no driver specified), force pymysql
+    if db_url.startswith("mysql://"):
+        db_url = db_url.replace("mysql://", "mysql+pymysql://", 1)
+
+    # Strip stale SSL query params from URL if any
+    if "?" in db_url and db_url.startswith("mysql"):
+        db_url = db_url.split("?")[0]
+
+    connect_args = {}
+    engine = create_engine(
+        db_url,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        connect_args=connect_args,
+    )
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    logger.info("Database engine created successfully.")
+except Exception as exc:
+    logger.error(
+        "Failed to create database engine: %s\n"
+        "Set the DATABASE_URL environment variable in Render dashboard.",
+        exc,
+    )
 
 
 def get_db():
+    if SessionLocal is None:
+        raise RuntimeError(
+            "Database is not configured. "
+            "Please set the DATABASE_URL environment variable."
+        )
     db = SessionLocal()
     try:
         yield db
