@@ -2,7 +2,12 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "mysql+pymysql://root:password@localhost:3306/bitespeed"
+    # On Render: set DATABASE_URL in the Environment Variables dashboard.
+    # Format for PostgreSQL (Render free DB):
+    #   postgresql://user:password@host/dbname
+    # Format for MySQL (local dev):
+    #   mysql+pymysql://root:password@localhost:3306/bitespeed
+    DATABASE_URL: str = "postgresql://localhost/bitespeed"
     APP_ENV: str = "development"
     ALLOWED_ORIGINS: str = "*"
 

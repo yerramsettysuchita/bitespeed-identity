@@ -4,16 +4,28 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 import os
+import logging
 
 from app.database import engine, Base
 from app.routes import router
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Auto-create tables on startup
-    Base.metadata.create_all(bind=engine)
+    # Auto-create tables on startup — wrapped so a DB connection failure
+    # doesn't crash uvicorn (exit status 3). The error is logged instead.
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables created / verified successfully.")
+    except Exception as exc:
+        logger.error(
+            "Could not connect to the database at startup: %s\n"
+            "Make sure DATABASE_URL is set correctly in the Render environment variables.",
+            exc,
+        )
     yield
 
 
